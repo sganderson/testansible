@@ -1,0 +1,59 @@
+- name: "Installing 12cR2Preinstall fonts xclock"
+  yum: 
+    name:
+      - oracle-database-server-12cR2-preinstall 
+      - xorg-x11-xauth
+      - xorg-x11-fonts-* 
+      - xorg-x11-font-utils 
+      - xorg-x11-fonts-Type1 
+      - xclock
+      - wget
+      - zip
+      - unzip
+
+- lineinfile:
+    path: /etc/selinux/config
+    regexp: '^SELINUX='
+    line: 'SELINUX=permissive'
+    backup: yes
+
+- lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^X11Forwarding no'
+    line: 'X11Forwarding yes'
+    backup: yes
+
+- lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#X11UseLocalhost yes'
+    line: 'X11UseLocalhost no'
+    backup: yes
+
+- lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#X11DisplayOffset 10'
+    line: 'X11DisplayOffset 10'
+    backup: yes
+
+- name: restart-sshd
+  service: name=sshd state=restarted
+
+- name: stop-firewalld
+  service: name=firewalld state=stopped
+
+- name: disable-firewalld
+  service: name=firewalld enabled=no
+
+- name: Creates directory
+  file:
+    path: /u01
+    state: directory
+    owner: oracle
+    group: oinstall
+    mode: 0775
+
+- name: set oracle user password
+  user:
+    name: oracle
+    password: $6$mysecretsalt$lxylT5/9wlw9WuBfvTqwo3NjO1PJwZTV4KVGSAIe2xlTgChgaK.4sJh2y2OtiDFettZkCfZcdvLXfeutyXaxA.
+

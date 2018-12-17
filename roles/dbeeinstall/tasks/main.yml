@@ -6,14 +6,6 @@
     group: oinstall
     mode: 0644
 
-- name: copying rsp file for database creation
-  copy:
-    src: ./rsp/dbca.rsp
-    dest: /u01/dbca.rsp
-    owner: oracle
-    group: oinstall
-    mode: 0644
-
 - name: Download and Unarchive software
   unarchive:
     src: https://objectstorage.eu-frankfurt-1.oraclecloud.com/p/IQXz6puEX8Vsimm3P7SUfOnN9k6eIuXnx8SBx0-qsF0/n/amignini/b/RepoAnsible/o/V839960-01.zip
@@ -60,17 +52,3 @@
 #- name: Run oracle installation post task 2/2
 #  command: /u01/app/oracle/product/12.2.0.1/db_home1/root.sh
 
-- name: Run database creation
-  command: /u01/app/oracle/product/12.2.0.1/db_home1/bin/dbca -silent -createDatabase -responseFile /u01/dbca.rsp
-  args:
-    creates: /u01/app/oracle/cfgtoollogs/dbca/orcl
-  become: yes
-  become_user: oracle
-
-- name: Run oracle installation post task 2/2
-  command: /u01/app/oracle/product/12.2.0.1/db_home1/root.sh
-
-- name: Start Listener
-  command: /u01/app/oracle/product/12.2.0.1/db_home1/bin/lsnrctl start
-  become: yes
-  become_user: oracle

@@ -1,0 +1,164 @@
+- name: "Installing 12cR2Preinstall fonts xclock"
+  yum: 
+    name:
+      - oracle-database-server-12cR2-preinstall 
+      - xorg-x11-xauth
+      - xorg-x11-fonts-* 
+      - xorg-x11-font-utils 
+      - xorg-x11-fonts-Type1 
+      - xclock
+      - wget
+      - zip
+      - unzip
+
+- lineinfile:
+    path: /etc/selinux/config
+    regexp: '^SELINUX='
+    line: 'SELINUX=permissive'
+    backup: yes
+
+- lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^X11Forwarding no'
+    line: 'X11Forwarding yes'
+    backup: yes
+
+- lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#X11UseLocalhost yes'
+    line: 'X11UseLocalhost no'
+    backup: yes
+
+- lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#X11DisplayOffset 10'
+    line: 'X11DisplayOffset 10'
+    backup: yes
+
+- name: restart-sshd
+  service: name=sshd state=restarted
+
+- name: stop-firewalld
+  service: name=firewalld state=stopped
+
+- name: disable-firewalld
+  service: name=firewalld enabled=no
+
+#- parted:
+#    device: /dev/nvme0n1
+#    label: gpt
+#    number: 1
+#    state: present
+
+#- name: Create a xfs filesystem on /dev/nvme0n1p1
+#  filesystem:
+#    fstype: xfs
+#    dev: /dev/nvme0n1p1
+
+- name: Creates directory
+  file:
+    path: /u01
+    state: directory
+    owner: oracle
+    group: oinstall
+    mode: 0775
+
+#- name: Mount up device
+#  mount:
+#    path: /u01
+#    src: /dev/nvme0n1p1
+#    fstype: xfs
+#    state: present
+
+#- name: reload mountpoint
+#  command: mount -a
+
+- name: set oracle user password
+  user:
+    name: oracle
+    password: $6$mysecretsalt$lxylT5/9wlw9WuBfvTqwo3NjO1PJwZTV4KVGSAIe2xlTgChgaK.4sJh2y2OtiDFettZkCfZcdvLXfeutyXaxA.
+
+#- name: copying database software 
+#  copy:
+#    src: ./zip/V839960-01.zip
+#    dest: /u01/V839960-01.zip
+#    owner: oracle
+#    group: oinstall
+#   mode: 0644
+
+- name: copying rsp file for database installation
+  copy:
+    src: ./rsp/swonly.rsp
+    dest: /u01/swonly.rsp
+    owner: oracle
+    group: oinstall
+    mode: 0644
+
+- name: copying rsp file for database creation
+  copy:
+    src: ./rsp/dbca.rsp
+    dest: /u01/dbca.rsp
+    owner: oracle
+    group: oinstall
+    mode: 0644
+
+- name: Download and Unarchive software
+  unarchive:
+    src: https://objectstorage.eu-frankfurt-1.oraclecloud.com/p/IQXz6puEX8Vsimm3P7SUfOnN9k6eIuXnx8SBx0-qsF0/n/amignini/b/RepoAnsible/o/V839960-01.zip
+    dest: /u01
+    remote_src: yes
+    owner: oracle
+    group: oinstall
+
+- lineinfile:
+    path: /home/oracle/.bash_profile
+    line: 'export ORACLE_HOSTNAME=dbtest'
+    backup: yes
+
+- lineinfile:
+    path: /home/oracle/.bash_profile
+    line: 'export ORA_INVENTORY=/u01/app/oraInventory'
+    backup: yes
+
+- lineinfile:
+    path: /home/oracle/.bash_profile
+    line: 'export ORACLE_HOME=/u01/app/oracle/product/12.2.0.1/db_home1'
+    backup: yes
+
+- lineinfile:
+    path: /home/oracle/.bash_profile
+    line: 'export ORACLE_BASE=/u01/app/oracle'
+    backup: yes
+
+- lineinfile:
+    path: /home/oracle/.bash_profile
+    line: 'export ORACLE_SID=orcl'
+    backup: yes
+
+- name: Run database installation
+  command: /u01/database/runInstaller -waitforcompletion -ignoreSysPrereqs -ignorePrereq -silent -responseFile /u01/swonly.rsp
+  args:
+    creates: /u01/app/oracle/product/12.2.0.1/db_home1
+  become: yes
+  become_user: oracle
+
+- name: Run oracle installation post task 1/2
+  command: /u01/app/oraInventory/orainstRoot.sh
+
+#- name: Run oracle installation post task 2/2
+#  command: /u01/app/oracle/product/12.2.0.1/db_home1/root.sh
+
+- name: Run database creation
+  command: /u01/app/oracle/product/12.2.0.1/db_home1/bin/dbca -silent -createDatabase -responseFile /u01/dbca.rsp
+  args:
+    creates: /u01/app/oracle/cfgtoollogs/dbca/orcl
+  become: yes
+  become_user: oracle
+
+- name: Run oracle installation post task 2/2
+  command: /u01/app/oracle/product/12.2.0.1/db_home1/root.sh
+
+- name: Start Listener
+  command: /u01/app/oracle/product/12.2.0.1/db_home1/bin/lsnrctl start
+  become: yes
+  become_user: oracle
